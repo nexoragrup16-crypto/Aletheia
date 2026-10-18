@@ -1,1 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aletheia | Verificación y trazabilidad</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; background: #f3f5f8; color: #17243a; }
+    header { background: #14243a; color: white; padding: 25px 8%; }
+    header h1 { margin: 0; letter-spacing: 2px; }
+    header p { margin-bottom: 0; color: #d7e2ef; }
+    main { max-width: 900px; margin: 32px auto; padding: 0 18px; }
+    .panel { background: white; padding: 24px; margin-bottom: 22px; border-radius: 12px; box-shadow: 0 3px 14px #17243a12; }
+    h2 { margin-top: 0; }
+    label { display: block; margin: 16px 0 7px; font-weight: bold; }
+    input, textarea, select { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 7px; font: inherit; }
+    textarea { min-height: 90px; resize: vertical; }
+    button { margin-top: 18px; background: #176b87; color: white; border: 0; padding: 12px 18px; border-radius: 7px; cursor: pointer; font-weight: bold; }
+    button:hover { background: #12546b; }
+    .record { border: 1px solid #dbe3ec; padding: 16px; border-radius: 8px; margin-top: 12px; overflow-wrap: anywhere; }
+    .record a { color: #176b87; }
+    .status { display: inline-block; background: #fff3cd; color: #775b00; padding: 5px 8px; border-radius: 5px; font-size: 13px; }
+    .muted { color: #64748b; font-size: 14px; }
+    footer { text-align: center; padding: 24px; color: #64748b; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ALETHEIA</h1>
+    <p>Verificación y trazabilidad de información</p>
+  </header>
+  <main>
+    <section class="panel">
+      <h2>Registrar una verificación</h2>
+      <p class="muted">Documenta una afirmación y las fuentes que permiten examinarla.</p>
+      <form id="formulario">
+        <label for="afirmacion">Afirmación que deseas verificar *</label>
+        <textarea id="afirmacion" required placeholder="Escribe aquí el dato, afirmación o frase que quieres investigar"></textarea>
+        <label for="fuente">Enlace de la fuente consultada</label>
+        <input id="fuente" type="url" placeholder="https://ejemplo.com/articulo">
+        <label for="evidencia">Evidencia o notas de investigación</label>
+        <textarea id="evidencia" placeholder="Resume qué aporta la fuente y qué falta por comprobar"></textarea>
+        <label for="estado">Estado de revisión</label>
+        <select id="estado">
+          <option>Pendiente de verificación</option>
+          <option>En revisión</option>
+          <option>Verificada con evidencia documentada</option>
+          <option>Información contradictoria</option>
+        </select>
+        <button type="submit">Guardar registro</button>
+      </form>
+      <p class="muted">Esta versión inicial guarda los registros en este navegador, no en una cuenta ni en un servidor.</p>
+    </section>
+    <section class="panel">
+      <h2>Historial de registros</h2>
+      <p class="muted">Revisa las afirmaciones y las fuentes que has documentado.</p>
+      <div id="historial"><p class="muted">Todavía no hay registros guardados.</p></div>
+      <button id="exportar" type="button">Exportar historial (.json)</button>
+    </section>
+  </main>
+  <footer>Aletheia · La evidencia importa · Herramienta de apoyo a la investigación</footer>
+  <script>
+    const clave = "aletheia_registros_v1";
+    let registros = [];
+    try { registros = JSON.parse(localStorage.getItem(clave) || "[]"); } catch (e) { registros = []; }
+    const seguro = (valor) => String(valor).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    function mostrar() {
+      const zona = document.getElementById("historial");
+      if (!registros.length) { zona.innerHTML = '<p class="muted">Todavía no hay registros guardados.</p>'; return; }
+      zona.innerHTML = registros.map((r, i) => '<article class="record"><strong>Registro ' + (i + 1) + '</strong><p>' + seguro(r.afirmacion) + '</p><span class="status">' + seguro(r.estado) + '</span><p>' + seguro(r.evidencia || "Sin notas de evidencia") + '</p>' + (r.fuente ? '<p><a href="' + seguro(r.fuente) + '" target="_blank" rel="noopener noreferrer">Consultar fuente</a></p>' : "") + '<p class="muted">Fecha: ' + seguro(r.fecha) + '</p><button type="button" data-eliminar="' + i + '" class="eliminar">Eliminar registro</button></article>').join("");
+    }
+    document.getElementById("formulario").addEventListener("submit", function(e) {
+      e.preventDefault();
+      const fuente = document.getElementById("fuente").value.trim();
+      if (fuente && !/^https?:\/\//i.test(fuente)) { alert("Introduce un enlace que empiece por http:// o https://"); return; }
+      registros.unshift({ afirmacion: document.getElementById("afirmacion").value.trim(), fuente, evidencia: document.getElementById("evidencia").value.trim(), estado: document.getElementById("estado").value, fecha: new Date().toLocaleString("es-CO") });
+      try { localStorage.setItem(clave, JSON.stringify(registros)); } catch (err) { alert("No se pudo guardar en este navegador. Exporta tu historial para conservarlo."); }
+      this.reset(); mostrar();
+    });
+    document.getElementById("historial").addEventListener("click", function(e) {
+      const boton = e.target.closest("[data-eliminar]");
+      if (!boton) return;
+      const indice = Number(boton.dataset.eliminar);
+      if (confirm("¿Quieres eliminar este registro?")) { registros.splice(indice, 1); localStorage.setItem(clave, JSON.stringify(registros)); mostrar(); }
+    });
+    document.getElementById("exportar").addEventListener("click", function() {
+      const blob = new Blob([JSON.stringify(registros, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob); const a = document.createElement("a");
+      a.href = url; a.download = "aletheia-historial.json"; a.click(); URL.revokeObjectURL(url);
+    });
+    mostrar();
+  </script>
+</body>
+</html>
 
