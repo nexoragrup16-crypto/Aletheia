@@ -12,12 +12,15 @@ h2{margin-top:0}.muted,.hint{color:var(--muted);font-size:14px}label{display:blo
 input,textarea,select{width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:7px;font:inherit;background:white;color:var(--ink)}
 textarea{min-height:85px;resize:vertical}.grid{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}
 button{margin-top:18px;background:var(--teal);color:white;border:0;padding:12px 17px;border-radius:7px;cursor:pointer;font-weight:bold}
-button.secondary{background:#e8eef4;color:var(--ink)}button.danger{background:#9b2c2c}.record{border:1px solid var(--line);padding:17px;border-radius:9px;margin-top:13px;overflow-wrap:anywhere}
+button.secondary{background:#e8eef4;color:var(--ink)}button.danger{background:#9b2c2c}.record{border:1px solid var(--line);padding:17px;border-radius:9px;margin-top:13px;overflow-wrap:anywhere;background:white}
 .record h3{margin:0 0 8px}.status{display:inline-block;background:#e2e8f0;color:#334155;padding:5px 9px;border-radius:5px;font-size:13px}
 .status.good{background:#d9fbe5;color:#166534}.status.bad{background:#fee2e2;color:#991b1b}a{color:var(--teal)}.empty{padding:18px;border:1px dashed var(--line);border-radius:8px;color:var(--muted)}
-footer{text-align:center;padding:24px;color:var(--muted);font-size:13px}@media(max-width:650px){.grid{grid-template-columns:1fr}.panel{padding:18px}}
+.filters{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:12px;align-items:end}.filters label{margin-top:0}
+.actions{display:flex;flex-wrap:wrap;gap:8px}footer{text-align:center;padding:24px;color:var(--muted);font-size:13px}
+@media(max-width:700px){.grid,.filters{grid-template-columns:1fr}.panel{padding:18px}}
 </style></head>
-<body><header><h1>ALETHEIA</h1><p>Verificación y trazabilidad de información</p></header>
+<body>
+<header><h1>ALETHEIA</h1><p>Verificación y trazabilidad de información</p></header>
 <main>
 <section><h2>Investiga una afirmación. Documenta la evidencia.</h2>
 <p>Registra noticias, datos y afirmaciones de internet; organiza las fuentes consultadas y deja constancia de cómo llegaste a una conclusión.</p>
@@ -35,21 +38,43 @@ footer{text-align:center;padding:24px;color:var(--muted);font-size:13px}@media(m
 <label for="justificacion">Justificación de la evaluación *</label><textarea id="justificacion" required maxlength="3000" placeholder="Explica por qué asignas ese resultado, qué limitaciones hay y qué información falta"></textarea>
 <button type="submit">Guardar ficha</button></form>
 <p class="hint">Los registros se guardan solo en este navegador. No se envían a un servidor ni se sincronizan con otros dispositivos. Exporta copias periódicamente.</p></section>
-<section class="panel"><h2>Historial de verificaciones</h2><p class="muted">Registros guardados: <strong id="contador">0</strong></p><div id="historial"><div class="empty">Todavía no hay fichas guardadas.</div></div>
-<button id="exportar" type="button" class="secondary">Exportar historial (.json)</button> <button id="exportarCsv" type="button" class="secondary">Exportar tabla (.csv)</button></section>
-</main><footer>Aletheia · Verifica con evidencia · Documenta tus fuentes</footer>
+<section class="panel"><h2>Historial de verificaciones</h2>
+<p class="muted">Registros guardados: <strong id="contador">0</strong> · Mostrados: <strong id="mostrados">0</strong></p>
+<div class="filters">
+<div><label for="busqueda">Buscar en las fichas</label><input id="busqueda" type="search" placeholder="Palabras de la afirmación, notas, origen…"></div>
+<div><label for="filtroResultado">Filtrar por resultado</label><select id="filtroResultado">
+<option value="">Todos los resultados</option><option>Pendiente de verificación</option><option>Respaldada por la evidencia consultada</option><option>Contradicha por la evidencia consultada</option><option>Engañosa o sin contexto suficiente</option><option>No concluyente</option>
+</select></div>
+<div><label for="orden">Orden</label><select id="orden"><option value="reciente">Más recientes primero</option><option value="antiguo">Más antiguos primero</option></select></div>
+</div>
+<div id="historial" aria-live="polite"><div class="empty">Todavía no hay fichas guardadas.</div></div>
+<div class="actions"><button id="exportar" type="button" class="secondary">Exportar historial (.json)</button><button id="exportarCsv" type="button" class="secondary">Exportar tabla (.csv)</button></div>
+</section></main><footer>Aletheia · Verifica con evidencia · Documenta tus fuentes</footer>
 <script>
 const clave="aletheia_registros_v2";let registros=[];
-try{registros=JSON.parse(localStorage.getItem(clave)||"[]")}catch(e){registros=[]}
-if(!registros.length){try{const old=JSON.parse(localStorage.getItem("aletheia_registros_v1")||"[]");if(old.length){registros=old.map(r=>({afirmacion:r.afirmacion||"",origen:"",fechaPublicacion:"",fuente:r.fuente||"",evidencia:r.evidencia||"",fuenteContraste:"",calidadFuente:"Por evaluar",resultado:r.estado||"Pendiente de verificación",justificacion:"Registro migrado: revisar y completar la justificación.",fechaConsulta:r.fecha||new Date().toLocaleString("es-CO")}));localStorage.setItem(clave,JSON.stringify(registros))}}catch(e){}}
+try{registros=JSON.parse(localStorage.getItem(clave)||"[]");if(!Array.isArray(registros))registros=[]}catch(e){registros=[]}
+if(!registros.length){try{const old=JSON.parse(localStorage.getItem("aletheia_registros_v1")||"[]");if(Array.isArray(old)&&old.length){registros=old.map((r,i)=>({id:r.id||("migrado-"+i+"-"+Date.now()),afirmacion:r.afirmacion||"",origen:r.origen||"",fechaPublicacion:r.fechaPublicacion||"",fuente:r.fuente||"",evidencia:r.evidencia||"",fuenteContraste:r.fuenteContraste||"",calidadFuente:r.calidadFuente||"Por evaluar",resultado:r.resultado||r.estado||"Pendiente de verificación",justificacion:r.justificacion||"Registro migrado desde una versión anterior; revisar y completar esta justificación.",fechaConsulta:r.fechaConsulta||r.fecha||new Date().toLocaleString("es-CO"),_orden:r._orden||Date.now()-i}));localStorage.setItem(clave,JSON.stringify(registros))}}catch(e){}}
 const safe=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-function link(url,label){if(!url)return"";try{let u=new URL(url);if(!["http:","https:"].includes(u.protocol))return"";return '<p><a target="_blank" rel="noopener noreferrer" href="'+safe(u.href)+'">'+label+'</a></p>'}catch(e){return""}}
-function show(){document.getElementById("contador").textContent=registros.length;let zone=document.getElementById("historial");if(!registros.length){zone.innerHTML='<div class="empty">Todavía no hay fichas guardadas.</div>';return}zone.innerHTML=registros.map((r,i)=>{let result=r.resultado||r.estado||"Pendiente";let cls=result==="Respaldada por la evidencia consultada"?"good":result==="Contradicha por la evidencia consultada"?"bad":"";return '<article class="record"><h3>Ficha '+(i+1)+'</h3><p><strong>Afirmación:</strong> '+safe(r.afirmacion)+'</p><span class="status '+cls+'">'+safe(result)+'</span><p><strong>Origen:</strong> '+safe(r.origen||"No indicado")+'</p><p><strong>Evidencia:</strong> '+safe(r.evidencia||"Sin notas")+'</p><p><strong>Evaluación de la fuente:</strong> '+safe(r.calidadFuente||"Por evaluar")+'</p><p><strong>Justificación:</strong> '+safe(r.justificacion||"Pendiente de completar")+'</p>'+link(r.fuente,"Abrir fuente principal")+link(r.fuenteContraste,"Abrir fuente de contraste")+'<p class="muted">Fecha de registro: '+safe(r.fechaConsulta||r.fecha||"No indicada")+'</p><button class="danger" type="button" data-del="'+i+'">Eliminar ficha</button></article>'}).join("")}
-document.getElementById("formulario").addEventListener("submit",function(e){e.preventDefault();let source=document.getElementById("fuente").value.trim(),contrast=document.getElementById("fuenteContraste").value.trim();for(let u of [source,contrast])if(u){try{let p=new URL(u);if(!["http:","https:"].includes(p.protocol))throw 0}catch(err){alert("Revisa los enlaces: deben comenzar por http:// o https://");return}}
-registros.unshift({afirmacion:document.getElementById("afirmacion").value.trim(),origen:document.getElementById("origen").value.trim(),fechaPublicacion:document.getElementById("fechaPublicacion").value,fuente:source,evidencia:document.getElementById("evidencia").value.trim(),fuenteContraste:contrast,calidadFuente:document.getElementById("calidadFuente").value,resultado:document.getElementById("resultado").value,justificacion:document.getElementById("justificacion").value.trim(),fechaConsulta:new Date().toLocaleString("es-CO")});try{localStorage.setItem(clave,JSON.stringify(registros))}catch(err){alert("No se pudo guardar. Exporta el historial para conservarlo.")}this.reset();show()});
-document.getElementById("historial").addEventListener("click",e=>{let b=e.target.closest("[data-del]");if(!b)return;let i=Number(b.dataset.del);if(confirm("¿Quieres eliminar esta ficha?")){registros.splice(i,1);localStorage.setItem(clave,JSON.stringify(registros));show()}});
-function download(name,data,type){let blob=new Blob([data],{type}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+function validUrl(url){if(!url)return"";try{const u=new URL(url);return["http:","https:"].includes(u.protocol)?u.href:""}catch(e){return""}}
+function link(url,label){const u=validUrl(url);return u?'<p><a href="'+safe(u)+'" target="_blank" rel="noopener noreferrer">'+label+'</a></p>':""}
+function resultClass(s){return s==="Respaldada por la evidencia consultada"?"good":s==="Contradicha por la evidencia consultada"?"bad":""}
+function searchable(r){return[r.afirmacion,r.origen,r.evidencia,r.justificacion,r.fuente,r.fuenteContraste,r.calidadFuente,r.resultado,r.estado].join(" ").toLocaleLowerCase("es")}
+function render(){
+const q=document.getElementById("busqueda").value.trim().toLocaleLowerCase("es"),f=document.getElementById("filtroResultado").value,o=document.getElementById("orden").value;
+const list=registros.filter(r=>(!q||searchable(r).includes(q))&&(!f||(r.resultado||r.estado||"Pendiente de verificación")===f));
+list.sort((a,b)=>{const x=Number(a._orden||0),y=Number(b._orden||0);return o==="antiguo"?x-y:y-x});
+document.getElementById("contador").textContent=registros.length;document.getElementById("mostrados").textContent=list.length;
+const zone=document.getElementById("historial");
+if(!list.length){zone.innerHTML='<div class="empty">No hay fichas que coincidan con la búsqueda y el filtro seleccionados.</div>';return}
+zone.innerHTML=list.map(r=>{const ix=registros.indexOf(r),res=r.resultado||r.estado||"Pendiente de verificación";return'<article class="record"><h3>Ficha de verificación</h3><p><strong>Afirmación:</strong> '+safe(r.afirmacion)+'</p><span class="status '+resultClass(res)+'">'+safe(res)+'</span><p><strong>Origen:</strong> '+safe(r.origen||"No indicado")+'</p><p><strong>Evidencia:</strong> '+safe(r.evidencia||"Sin notas")+'</p><p><strong>Evaluación inicial de la fuente:</strong> '+safe(r.calidadFuente||"Por evaluar")+'</p><p><strong>Justificación:</strong> '+safe(r.justificacion||"Pendiente de completar")+'</p>'+link(r.fuente,"Abrir fuente principal")+link(r.fuenteContraste,"Abrir fuente de contraste")+'<p class="muted">Fecha de registro: '+safe(r.fechaConsulta||r.fecha||"No indicada")+'</p><button class="danger" type="button" data-del="'+ix+'">Eliminar ficha</button></article>'}).join("")
+}
+document.getElementById("formulario").addEventListener("submit",function(e){e.preventDefault();const fuente=document.getElementById("fuente").value.trim(),contraste=document.getElementById("fuenteContraste").value.trim();for(const u of[fuente,contraste])if(u&&!validUrl(u)){alert("Revisa los enlaces: deben comenzar por http:// o https://");return}
+const now=Date.now();registros.unshift({id:(window.crypto&&crypto.randomUUID)?crypto.randomUUID():"registro-"+now,afirmacion:document.getElementById("afirmacion").value.trim(),origen:document.getElementById("origen").value.trim(),fechaPublicacion:document.getElementById("fechaPublicacion").value,fuente,evidencia:document.getElementById("evidencia").value.trim(),fuenteContraste:contraste,calidadFuente:document.getElementById("calidadFuente").value,resultado:document.getElementById("resultado").value,justificacion:document.getElementById("justificacion").value.trim(),fechaConsulta:new Date().toLocaleString("es-CO"),_orden:now});
+try{localStorage.setItem(clave,JSON.stringify(registros))}catch(err){alert("No se pudo guardar en este navegador. Exporta el historial para conservarlo.")}this.reset();render()});
+document.getElementById("historial").addEventListener("click",e=>{const b=e.target.closest("[data-del]");if(!b)return;const i=Number(b.dataset.del);if(!Number.isInteger(i)||!registros[i])return;if(confirm("¿Quieres eliminar esta ficha?")){registros.splice(i,1);try{localStorage.setItem(clave,JSON.stringify(registros))}catch(err){alert("No se pudo actualizar el almacenamiento local.")}render()}});
+["busqueda","filtroResultado","orden"].forEach(id=>document.getElementById(id).addEventListener(id==="busqueda"?"input":"change",render));
+function download(name,data,type){const blob=new Blob([data],{type}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 document.getElementById("exportar").addEventListener("click",()=>download("aletheia-historial.json",JSON.stringify(registros,null,2),"application/json"));
-document.getElementById("exportarCsv").addEventListener("click",()=>{let fields=["afirmacion","origen","fechaPublicacion","fuente","evidencia","fuenteContraste","calidadFuente","resultado","justificacion","fechaConsulta"];let csv=[fields.join(","),...registros.map(r=>fields.map(k=>'"'+String(r[k]||"").replace(/"/g,'""')+'"').join(","))].join("\r\n");download("aletheia-historial.csv","\uFEFF"+csv,"text/csv;charset=utf-8")});
-show();
+document.getElementById("exportarCsv").addEventListener("click",()=>{const fields=["afirmacion","origen","fechaPublicacion","fuente","evidencia","fuenteContraste","calidadFuente","resultado","justificacion","fechaConsulta"];const csv=[fields.join(","),...registros.map(r=>fields.map(k=>'"'+String(r[k]||"").replace(/"/g,'""')+'"').join(","))].join("\r\n");download("aletheia-historial.csv","\uFEFF"+csv,"text/csv;charset=utf-8")});
+render();
 </script></body></html>
