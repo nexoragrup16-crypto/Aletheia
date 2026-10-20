@@ -38,6 +38,12 @@ button.secondary{background:#e8eef4;color:var(--ink)}button.danger{background:#9
 <label for="justificacion">Justificación de la evaluación *</label><textarea id="justificacion" required maxlength="3000" placeholder="Explica por qué asignas ese resultado, qué limitaciones hay y qué información falta"></textarea>
 <button type="submit">Guardar ficha</button></form>
 <p class="hint">Los registros se guardan solo en este navegador. No se envían a un servidor ni se sincronizan con otros dispositivos. Exporta copias periódicamente.</p></section>
+<section class="panel"><h2>Asistente de búsqueda de fuentes</h2>
+<p>Prepara búsquedas para encontrar información relacionada y contrastar una afirmación en diferentes sitios. Se abrirán en una pestaña nueva; revisa la fecha, autoría, evidencia y posibles conflictos de interés de cada resultado.</p>
+<label for="consultaBusqueda">Afirmación o términos para buscar</label>
+<textarea id="consultaBusqueda" maxlength="2000" placeholder="Escribe una afirmación o usa el botón para tomarla del formulario"></textarea>
+<div class="actions"><button id="usarAfirmacion" type="button" class="secondary">Usar la afirmación del formulario</button><button id="buscarGoogle" type="button">Buscar en Google</button><button id="buscarBing" type="button" class="secondary">Buscar en Bing</button><button id="buscarNoticias" type="button" class="secondary">Buscar en Google News</button><button id="buscarFactCheck" type="button" class="secondary">Buscar verificaciones previas</button></div>
+<p class="hint">Estas búsquedas abren servicios externos. Aletheia no lee automáticamente sus resultados ni emite una conclusión automática. No introduzcas información privada o sensible en las búsquedas.</p></section>
 <section class="panel"><h2>Historial de verificaciones</h2>
 <p class="muted">Registros guardados: <strong id="contador">0</strong> · Mostrados: <strong id="mostrados">0</strong></p>
 <div class="filters">
@@ -77,4 +83,21 @@ function download(name,data,type){const blob=new Blob([data],{type}),url=URL.cre
 document.getElementById("exportar").addEventListener("click",()=>download("aletheia-historial.json",JSON.stringify(registros,null,2),"application/json"));
 document.getElementById("exportarCsv").addEventListener("click",()=>{const fields=["afirmacion","origen","fechaPublicacion","fuente","evidencia","fuenteContraste","calidadFuente","resultado","justificacion","fechaConsulta"];const csv=[fields.join(","),...registros.map(r=>fields.map(k=>'"'+String(r[k]||"").replace(/"/g,'""')+'"').join(","))].join("\r\n");download("aletheia-historial.csv","\uFEFF"+csv,"text/csv;charset=utf-8")});
 render();
+
+// Asistente de búsqueda: prepara consultas externas sin usar claves API.
+document.getElementById("usarAfirmacion").addEventListener("click",()=>{
+ const claim=document.getElementById("afirmacion").value.trim();
+ if(!claim){alert("Primero escribe una afirmación en el formulario o introdúcela en el cuadro de búsqueda.");return}
+ document.getElementById("consultaBusqueda").value=claim;
+ document.getElementById("consultaBusqueda").focus();
+});
+function abrirBusqueda(base){
+ const q=document.getElementById("consultaBusqueda").value.trim();
+ if(!q){alert("Escribe una afirmación o unos términos de búsqueda primero.");document.getElementById("consultaBusqueda").focus();return}
+ window.open(base+encodeURIComponent(q),"_blank","noopener,noreferrer");
+}
+document.getElementById("buscarGoogle").addEventListener("click",()=>abrirBusqueda("https://www.google.com/search?q="));
+document.getElementById("buscarBing").addEventListener("click",()=>abrirBusqueda("https://www.bing.com/search?q="));
+document.getElementById("buscarNoticias").addEventListener("click",()=>abrirBusqueda("https://news.google.com/search?q="));
+document.getElementById("buscarFactCheck").addEventListener("click",()=>abrirBusqueda("https://www.google.com/search?q="+encodeURIComponent("site:toolbox.google.com/factcheck/explorer ")+"%20"));
 </script></body></html>
