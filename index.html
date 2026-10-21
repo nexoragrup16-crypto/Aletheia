@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -22,6 +22,15 @@ button.secondary{background:#e8eef4;color:var(--ink)}button.danger{background:#9
 .evidence-item p{margin:5px 0}.evidence-actions{display:flex;gap:8px;flex-wrap:wrap}
 .status.supports{background:#d9fbe5;color:#166534}.status.contradicts{background:#fee2e2;color:#991b1b}.status.context{background:#fef3c7;color:#92400e}
 .matrix-wrap{overflow-x:auto;margin:12px 0}.matrix{width:100%;border-collapse:collapse;font-size:14px;background:white}.matrix th,.matrix td{border:1px solid var(--line);padding:9px;text-align:left;vertical-align:top}.matrix th{background:#e8eef4}.matrix-note{font-size:13px;color:var(--muted)}
+
+.stats-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:16px 0}
+.stat-card{border:1px solid var(--line);border-radius:10px;padding:16px;background:#f8fafc}
+.stat-card .stat-label{font-size:13px;color:var(--muted);margin:0 0 6px}
+.stat-card .stat-number{font-size:28px;font-weight:bold;line-height:1.2;margin:0;color:var(--navy)}
+.stat-row{display:grid;grid-template-columns:minmax(170px,1.5fr) 3fr 42px;gap:12px;align-items:center;margin:12px 0}
+.stat-track{height:10px;background:#e8eef4;border-radius:999px;overflow:hidden}
+.stat-bar{height:100%;background:var(--teal);border-radius:999px;min-width:0}
+@media(max-width:700px){.stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.stat-row{grid-template-columns:1fr 42px;gap:6px}.stat-row .stat-track{grid-column:1 / -1;grid-row:2}}
 @media(max-width:700px){.grid,.filters{grid-template-columns:1fr}.panel{padding:18px}}
 </style></head>
 <body>
@@ -64,6 +73,19 @@ button.secondary{background:#e8eef4;color:var(--ink)}button.danger{background:#9
 <textarea id="consultaBusqueda" maxlength="2000" placeholder="Escribe una afirmación o usa el botón para tomarla del formulario"></textarea>
 <div class="actions"><button id="usarAfirmacion" type="button" class="secondary">Usar la afirmación del formulario</button><button id="buscarGoogle" type="button">Buscar en Google</button><button id="buscarBing" type="button" class="secondary">Buscar en Bing</button><button id="buscarNoticias" type="button" class="secondary">Buscar en Google News</button><button id="buscarFactCheck" type="button" class="secondary">Buscar verificaciones previas</button></div>
 <p class="hint">Estas búsquedas abren servicios externos. Aletheia no lee automáticamente sus resultados ni emite una conclusión automática. No introduzcas información privada o sensible en las búsquedas.</p></section>
+<section class="panel" id="panelEstadisticas">
+<h2>Panel de estadísticas</h2>
+<p class="muted">Resumen de todas las fichas guardadas en este navegador. Las cifras no cambian al aplicar filtros al historial.</p>
+<div class="stats-grid">
+<div class="stat-card"><p class="stat-label">Total de fichas</p><p class="stat-number" id="statTotal">0</p></div>
+<div class="stat-card"><p class="stat-label">Pendientes de verificación</p><p class="stat-number" id="statPendientes">0</p></div>
+<div class="stat-card"><p class="stat-label">Fichas con evidencias individuales</p><p class="stat-number" id="statConEvidencias">0</p></div>
+<div class="stat-card"><p class="stat-label">Fuentes individuales registradas</p><p class="stat-number" id="statFuentes">0</p></div>
+</div>
+<h3>Distribución por resultado</h3>
+<div id="estadisticasResultado"><p class="muted">Las estadísticas aparecerán cuando se cargue el historial.</p></div>
+<p class="hint">Este panel cuenta los resultados registrados por la persona investigadora. No verifica automáticamente la veracidad de las afirmaciones.</p>
+</section>
 <section class="panel"><h2>Historial de verificaciones</h2>
 <p class="muted">Registros guardados: <strong id="contador">0</strong> · Mostrados: <strong id="mostrados">0</strong></p>
 <div class="filters">
@@ -85,7 +107,32 @@ function validUrl(url){if(!url)return"";try{const u=new URL(url);return["http:",
 function link(url,label){const u=validUrl(url);return u?'<p><a href="'+safe(u)+'" target="_blank" rel="noopener noreferrer">'+label+'</a></p>':""}
 function resultClass(s){return s==="Respaldada por la evidencia consultada"?"good":s==="Contradicha por la evidencia consultada"?"bad":""}
 function searchable(r){const evs=(r.evidencias||[]).map(ev=>[ev.titulo,ev.entidad,ev.url,ev.tipo,ev.calidad,ev.independencia,ev.peso,ev.limitacion,ev.detalle].join(" ")).join(" ");return[r.afirmacion,r.origen,r.evidencia,r.justificacion,r.fuente,r.fuenteContraste,r.calidadFuente,r.resultado,r.estado,evs].join(" ").toLocaleLowerCase("es")}
+
+function renderStats(){
+ const total=registros.length;
+ const resultados=["Pendiente de verificación","Respaldada por la evidencia consultada","Contradicha por la evidencia consultada","Engañosa o sin contexto suficiente","No concluyente"];
+ const resultadoDe=r=>r.resultado||r.estado||"Pendiente de verificación";
+ const conteos=Object.fromEntries(resultados.map(nombre=>[nombre,0]));
+ let fichasConEvidencias=0,totalFuentes=0;
+ registros.forEach(r=>{
+  const resultado=resultadoDe(r);
+  if(Object.prototype.hasOwnProperty.call(conteos,resultado))conteos[resultado]++;
+  else conteos[resultado]=1+(conteos[resultado]||0);
+  if(Array.isArray(r.evidencias)&&r.evidencias.length){fichasConEvidencias++;totalFuentes+=r.evidencias.length;}
+ });
+ document.getElementById("statTotal").textContent=total;
+ document.getElementById("statPendientes").textContent=conteos["Pendiente de verificación"]||0;
+ document.getElementById("statConEvidencias").textContent=fichasConEvidencias;
+ document.getElementById("statFuentes").textContent=totalFuentes;
+ const zona=document.getElementById("estadisticasResultado");
+ zona.innerHTML=resultados.map(nombre=>{
+  const cantidad=conteos[nombre]||0,porcentaje=total?Math.round(cantidad/total*100):0;
+  return '<div class="stat-row"><span>'+nombre+'</span><div class="stat-track" role="progressbar" aria-label="'+nombre+'" aria-valuemin="0" aria-valuemax="'+total+'" aria-valuenow="'+cantidad+'"><div class="stat-bar" style="width:'+porcentaje+'%"></div></div><strong>'+cantidad+'</strong></div>';
+ }).join("");
+}
+
 function render(){
+ renderStats();
 const q=document.getElementById("busqueda").value.trim().toLocaleLowerCase("es"),f=document.getElementById("filtroResultado").value,o=document.getElementById("orden").value;
 const list=registros.filter(r=>(!q||searchable(r).includes(q))&&(!f||(r.resultado||r.estado||"Pendiente de verificación")===f));
 list.sort((a,b)=>{const x=Number(a._orden||0),y=Number(b._orden||0);return o==="antiguo"?x-y:y-x});
